@@ -8,7 +8,68 @@
   let view = state.onboarded ? 'home' : 'empty';
   let selectedDay = null; // Date object for calendar view
 
-  function persist() { window.LedgerStore.save(state); }
+  function persist() {
+    window.LedgerStore.save(state);
+    scheduleDriveBackup();
+  }
+
+  // -------- Google Drive auto-sync --------
+  let _driveTimer = null;
+  let _drivePending = false;
+  function scheduleDriveBackup() {
+    if (!state.settings.googleConnected) return;
+    if (!state.settings.driveAutoSync) return;
+    _drivePending = true;
+    if (_driveTimer) clearTimeout(_driveTimer);
+    _driveTimer = setTimeout(runDriveBackup, 4000);
+  }
+  async function runDriveBackup(opts = {}) {
+    if (!window.LedgerDrive) return;
+    if (!state.settings.googleConnected) return;
+    if (!_drivePending && !opts.force) return;
+    _drivePending = false;
+    try {
+      const res = await window.LedgerDrive.backup(state, state.settings.driveFileId);
+      state.settings.driveFileId = res.fileId;
+      state.settings.driveLastSyncAt = Date.now();
+      state.settings.driveLastModified = res.modifiedTime || '';
+      window.LedgerStore.save(state);
+      // Refresh settings view if open so "last sync" updates
+      if (view === 'settings') render();
+      if (opts.toast) toast('สำรองขึ้น Drive แล้ว', 'pos');
+    } catch (e) {
+      console.warn('Drive backup failed', e);
+      if (opts.toast) toast('สำรองล้มเหลว: ' + e.message, 'neg');
+    }
+  }
+  async function runDriveRestore() {
+    if (!window.LedgerDrive) return;
+    if (!state.settings.googleConnected) return toast('เชื่อม Google ก่อน', 'neg');
+    try {
+      toast('กำลังโหลดข้อมูลจาก Drive...');
+      const res = await window.LedgerDrive.restore(state.settings.driveFileId);
+      if (!res) return toast('ยังไม่มีข้อมูลสำรองบน Drive', 'neg');
+      const incoming = res.state;
+      // Preserve local Google connection settings — those are per-device.
+      incoming.settings = {
+        ...incoming.settings,
+        googleClientId: state.settings.googleClientId,
+        googleConnected: state.settings.googleConnected,
+        googleCalendarId: state.settings.googleCalendarId,
+        driveFileId: res.fileId,
+        driveLastSyncAt: Date.now(),
+        driveLastModified: res.modifiedTime || '',
+        driveAutoSync: state.settings.driveAutoSync,
+      };
+      state = incoming;
+      window.LedgerStore.save(state);
+      render();
+      toast('โหลดข้อมูลล่าสุดเรียบร้อย', 'pos');
+    } catch (e) {
+      console.error(e);
+      toast('โหลดข้อมูลล้มเหลว: ' + e.message, 'neg');
+    }
+  }
 
   function set(updater) {
     state = typeof updater === 'function' ? updater(state) : updater;
@@ -728,7 +789,7 @@
 
     const btnsRow = el('div', { style: { display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid rgba(60,60,67,0.12)' } }, [
       state.settings.googleConnected
-        ? el('button', { class: 'btn danger', onclick: async () => { window.LedgerCal.disconnect(); set({ ...state, settings: { ...state.settings, googleConnected: false, googleCalendarId: '' } }); toast('ยกเลิกการเชื่อมต่อแล้ว'); } }, 'ยกเลิกการเชื่อม')
+        ? el('button', { class: 'btn danger', onclick: async () => { window.LedgerCal.disconnect(); set({ ...state, settings: { ...state.settings, googleConnected: false, googleCalendarId: '', driveFileId: '', driveLastSyncAt: 0, driveLastModified: '' } }); toast('ยกเลิกการเชื่อมต่อแล้ว'); } }, 'ยกเลิกการเชื่อม')
         : el('button', { class: 'btn primary', onclick: () => connectGoogle() }, 'เชื่อมต่อ Google'),
       state.settings.googleConnected
         ? el('button', { class: 'btn', onclick: () => syncAllToGoogle() }, 'ดันบิลทั้งหมดขึ้นปฏิทิน')
@@ -736,6 +797,65 @@
     ].filter(Boolean));
     gcCard.appendChild(btnsRow);
     wrap.appendChild(gcCard);
+
+    // --- Google Drive sync ---
+    if (state.settings.googleConnected) {
+      wrap.appendChild(el('div', { class: 'set-grp-lbl' }, 'ซิงค์ข้ามเครื่อง'));
+      const dvCard = el('div', { class: 'card' });
+
+      const lastSync = state.settings.driveLastSyncAt
+        ? new Date(state.settings.driveLastSyncAt)
+        : null;
+      const lastSyncStr = lastSync
+        ? `ล่าสุด ${lastSync.toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+        : 'ยังไม่เคยซิงค์';
+
+      dvCard.appendChild(el('div', { class: 'row' }, [
+        el('div', { class: 'row-body' }, [
+          el('div', { class: 'row-title' }, 'Google Drive'),
+          el('div', { class: 'row-sub' }, [
+            el('span', { class: 'pill pos' }, '● พร้อมใช้'),
+            ' · ',
+            lastSyncStr,
+          ]),
+        ]),
+      ]));
+
+      // Auto-sync toggle
+      const autoRow = el('div', { class: 'row' }, [
+        el('div', { class: 'row-body' }, [
+          el('div', { class: 'row-title' }, 'ซิงค์อัตโนมัติ'),
+          el('div', { class: 'row-sub' }, 'อัปโหลดข้อมูลขึ้น Drive ทุกครั้งที่บันทึก'),
+        ]),
+      ]);
+      const sw = el('button', {
+        class: 'switch' + (state.settings.driveAutoSync ? ' on' : ''),
+        role: 'switch',
+        'aria-checked': state.settings.driveAutoSync ? 'true' : 'false',
+        onclick: () => {
+          state.settings.driveAutoSync = !state.settings.driveAutoSync;
+          window.LedgerStore.save(state);
+          render();
+          if (state.settings.driveAutoSync) runDriveBackup({ force: true, toast: true });
+        },
+      }, el('span', { class: 'switch-knob' }));
+      autoRow.appendChild(sw);
+      dvCard.appendChild(autoRow);
+
+      // Manual sync buttons
+      const syncBtns = el('div', { style: { display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid rgba(60,60,67,0.12)' } }, [
+        el('button', { class: 'btn primary', onclick: () => runDriveBackup({ force: true, toast: true }) }, '↑ สำรองตอนนี้'),
+        el('button', { class: 'btn', onclick: () => {
+          if (confirm('โหลดข้อมูลจาก Drive มาทับของในเครื่องนี้?\nข้อมูลที่ยังไม่ได้สำรองจะหายไป')) runDriveRestore();
+        } }, '↓ โหลดจาก Drive'),
+      ]);
+      dvCard.appendChild(syncBtns);
+
+      dvCard.appendChild(el('div', { class: 'section-hint', style: { padding: '8px 16px 14px' } },
+        'ข้อมูลถูกเก็บใน Drive ส่วนตัวของคุณ (พื้นที่แอป) · ใส่ Client ID เดียวกันบนเครื่องอื่น → จะโหลดข้อมูลมาใช้ได้'));
+
+      wrap.appendChild(dvCard);
+    }
 
     // .ics fallback
     wrap.appendChild(el('div', { class: 'set-grp-lbl' }, 'ส่งออกปฏิทินแบบไฟล์ (.ics)'));
@@ -1058,6 +1178,31 @@
       persist();
       render();
       toast('เชื่อมต่อสำเร็จ!', 'pos');
+
+      // After connect: peek Drive for existing backup, offer restore if found
+      try {
+        const remote = await window.LedgerDrive.peek(state.settings.driveFileId);
+        if (remote && remote.id) {
+          const localEmpty = !state.transactions?.length && !state.recurring?.length && !state.income;
+          const remoteNewer = !state.settings.driveLastModified ||
+            new Date(remote.modifiedTime) > new Date(state.settings.driveLastModified);
+          if (localEmpty || remoteNewer) {
+            const msg = localEmpty
+              ? 'พบข้อมูลสำรองบน Drive · ต้องการโหลดมาใช้ไหม?'
+              : 'พบข้อมูลที่ใหม่กว่าบน Drive · ต้องการโหลดมาทับของในเครื่องนี้ไหม?';
+            if (confirm(msg)) {
+              await runDriveRestore();
+              return;
+            }
+          }
+        }
+        // No remote backup → push current state
+        if (!remote && (state.transactions?.length || state.recurring?.length || state.income)) {
+          await runDriveBackup({ force: true });
+        }
+      } catch (e) {
+        console.warn('Drive check after connect failed', e);
+      }
     } catch (e) {
       console.error(e);
       toast('เชื่อมต่อล้มเหลว: ' + (e.message || e), 'neg');

@@ -292,6 +292,23 @@ input, select, textarea { font-family: inherit; }
   font-size: 10px; font-weight: 600; letter-spacing: 0.2px;
 }
 
+/* Toggle switch */
+.switch {
+  appearance: none; border: none; cursor: pointer;
+  width: 44px; height: 26px; border-radius: 999px;
+  background: rgba(120,120,128,0.32);
+  position: relative; transition: background 160ms ease;
+  padding: 0; flex-shrink: 0;
+}
+.switch.on { background: var(--pos); }
+.switch-knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 160ms ease;
+}
+.switch.on .switch-knob { transform: translateX(18px); }
+
 /* =========================================================
    Calendar grid
    ========================================================= */

@@ -19,6 +19,11 @@
       googleConnected: false,
       googleCalendarId: '',   // when connected, we create/use a calendar named 'รายรับ-รายจ่าย'
       googleCalendarName: 'รายรับ-รายจ่าย',
+      // Google Drive sync
+      driveAutoSync: true,
+      driveFileId: '',
+      driveLastSyncAt: 0,     // local timestamp (ms) of last successful backup/restore
+      driveLastModified: '',  // remote modifiedTime string from last sync
     },
     income: null,
     // income: { id, label, amount, day, account }
