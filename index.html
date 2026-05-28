@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <title>Ledger · รายรับ-รายจ่าย</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- App shell -->
+  <div id="app" class="app">
+    <!-- Sidebar (desktop) / hidden on mobile -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">฿</div>
+        <div class="brand-text">
+          <div class="brand-title">Ledger</div>
+          <div class="brand-sub">รายรับ-รายจ่าย</div>
+        </div>
+      </div>
+      <nav class="nav-side" id="navSide"></nav>
+      <div class="sidebar-foot" id="sidebarFoot"></div>
+    </aside>
+
+    <!-- Main area -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div>
+            <div class="top-date" id="topDate">—</div>
+            <h1 class="top-title" id="topTitle">หน้าหลัก</h1>
+          </div>
+          <div class="top-actions">
+            <button class="icon-btn" id="quickAddBtn" title="เพิ่มรายการ" aria-label="เพิ่มรายการ">＋</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="view" id="view"></section>
+    </main>
+
+    <!-- Bottom tab bar (mobile) -->
+    <nav class="tabbar" id="tabbar"></nav>
+
+    <!-- FAB (mobile) -->
+    <button class="fab" id="fab" aria-label="เพิ่มรายการ">＋</button>
+  </div>
+
+  <!-- Modal host -->
+  <div id="modalRoot" class="modal-root" aria-hidden="true"></div>
+
+  <!-- Toast host -->
+  <div id="toastRoot" class="toast-root"></div>
+
+  <!-- Templates -->
+  <template id="tpl-empty">
+    <div class="empty">
+      <div class="empty-mark">฿</div>
+      <h2 class="empty-title">เริ่มต้นใช้งาน</h2>
+      <p class="empty-sub">ตั้งค่ารายรับและบิลประจำของคุณก่อน ระบบจะคำนวณยอดคงเหลือและคาดการณ์ 12 เดือนข้างหน้าให้อัตโนมัติ</p>
+      <div class="empty-steps">
+        <button class="step-btn" data-action="setup-income">
+          <span class="step-num">1</span>
+          <span class="step-body">
+            <span class="step-title">ตั้งรายรับประจำเดือน</span>
+            <span class="step-sub">เงินเดือนเข้าวันที่เท่าไหร่ จำนวนเท่าไหร่</span>
+          </span>
+          <span class="step-arrow">›</span>
+        </button>
+        <button class="step-btn" data-action="setup-bill">
+          <span class="step-num">2</span>
+          <span class="step-body">
+            <span class="step-title">เพิ่มบิลประจำ</span>
+            <span class="step-sub">ค่าบ้าน · ค่าน้ำ · ค่าไฟ · ค่าผ่อนรถ · ฯลฯ</span>
+          </span>
+          <span class="step-arrow">›</span>
+        </button>
+        <button class="step-btn" data-action="setup-google">
+          <span class="step-num">3</span>
+          <span class="step-body">
+            <span class="step-title">เชื่อม Google Calendar <span class="badge-opt">ไม่บังคับ</span></span>
+            <span class="step-sub">ซิงค์รายการเข้าปฏิทินไอโฟน/มือถือ 2 ทิศทาง</span>
+          </span>
+          <span class="step-arrow">›</span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <script src="storage.js"></script>
+  <script src="calendar.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
