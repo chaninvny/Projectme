@@ -11,7 +11,7 @@
 // are made browser-side with the user's own token.
 
 (function () {
-  const SCOPES = 'https://www.googleapis.com/auth/calendar';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive.appdata';
   const DISCOVERY = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 
   let tokenClient = null;
@@ -79,6 +79,7 @@
   }
 
   function isConnected() { return !!accessToken; }
+  function getAccessToken() { return accessToken; }
 
   // Find or create the app's calendar by name.
   async function ensureCalendar(name = 'รายรับ-รายจ่าย') {
@@ -239,7 +240,7 @@
   }
 
   window.LedgerCal = {
-    connect, disconnect, isConnected,
+    connect, disconnect, isConnected, getAccessToken,
     ensureCalendar, pushEvent, updateEvent, deleteEvent, pullEvents,
     generateICS, downloadICS,
   };
